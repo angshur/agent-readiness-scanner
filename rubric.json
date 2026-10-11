@@ -1,0 +1,242 @@
+{
+  "categories": [
+    {
+      "id": "auth",
+      "name": "Auth & Access",
+      "weight": 25
+    },
+    {
+      "id": "write",
+      "name": "Write Safety",
+      "weight": 30
+    },
+    {
+      "id": "obs",
+      "name": "Observability",
+      "weight": 25
+    },
+    {
+      "id": "dx",
+      "name": "Developer Experience",
+      "weight": 20
+    }
+  ],
+  "bands": [
+    {
+      "min": 80,
+      "label": "Agent-Ready"
+    },
+    {
+      "min": 60,
+      "label": "Partially Ready"
+    },
+    {
+      "min": 35,
+      "label": "Significant Gaps"
+    },
+    {
+      "min": 0,
+      "label": "Not Agent-Ready"
+    }
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "category": "auth",
+      "text": "Does the platform expose a public, documented API?",
+      "options": [
+        {
+          "label": "Yes — public and well documented",
+          "score": 100,
+          "gap": null
+        },
+        {
+          "label": "Yes, but docs are sparse, outdated, or partner-gated",
+          "score": 50,
+          "gap": null
+        },
+        {
+          "label": "No public API",
+          "score": 0,
+          "gap": "No public, documented API — the baseline requirement before any agent integration can start."
+        }
+      ]
+    },
+    {
+      "id": "q2",
+      "category": "auth",
+      "text": "What's the authentication model?",
+      "options": [
+        {
+          "label": "OAuth 2.0 with scoped, revocable permissions",
+          "score": 100,
+          "gap": null
+        },
+        {
+          "label": "API key only, account-wide access",
+          "score": 50,
+          "gap": "Auth is API-key-only with no scoping, so an agent gets full account access with no way to limit blast radius."
+        },
+        {
+          "label": "Shared login, session cookies, or no formal auth",
+          "score": 0,
+          "gap": "No formal, scoped authentication model — an agent would have to impersonate a human session."
+        }
+      ]
+    },
+    {
+      "id": "q3",
+      "category": "write",
+      "text": "Can API clients write data back to the platform, not just read?",
+      "options": [
+        {
+          "label": "Yes, full read/write across core objects",
+          "score": 100,
+          "gap": null
+        },
+        {
+          "label": "Limited write — a subset of objects only",
+          "score": 60,
+          "gap": "Write access is limited to a subset of objects, which caps what an agent can actually do end to end."
+        },
+        {
+          "label": "Read-only",
+          "score": 0,
+          "gap": "The API is read-only — an agent can observe but never take action."
+        }
+      ]
+    },
+    {
+      "id": "q4",
+      "category": "write",
+      "text": "Are writes idempotent — safe to retry without side effects (idempotency keys, upsert semantics)?",
+      "options": [
+        {
+          "label": "Yes, documented idempotency support",
+          "score": 100,
+          "gap": null
+        },
+        {
+          "label": "Partially — only on some endpoints",
+          "score": 50,
+          "gap": "Idempotency is only partially documented, so a retried agent action can be unsafe on some endpoints."
+        },
+        {
+          "label": "No, or not documented",
+          "score": 0,
+          "gap": "Writes aren't documented as idempotent — a retried agent action can silently double-write or duplicate records."
+        }
+      ]
+    },
+    {
+      "id": "q5",
+      "category": "write",
+      "text": "Are destructive writes reversible (soft delete, versioning, rollback)?",
+      "options": [
+        {
+          "label": "Yes",
+          "score": 100,
+          "gap": null
+        },
+        {
+          "label": "Partially",
+          "score": 50,
+          "gap": "Some destructive writes have no rollback path, so a subset of agent mistakes are unrecoverable."
+        },
+        {
+          "label": "No — deletes are permanent",
+          "score": 0,
+          "gap": "Destructive writes are permanent — one bad agent action has no undo."
+        }
+      ]
+    },
+    {
+      "id": "q6",
+      "category": "obs",
+      "text": "Is there an audit log for API-driven changes, queryable via the API?",
+      "options": [
+        {
+          "label": "Yes, full audit trail available via the API",
+          "score": 100,
+          "gap": null
+        },
+        {
+          "label": "Exists in the UI only, not API-accessible",
+          "score": 40,
+          "gap": "The audit trail is UI-only, so an agent operator has no programmatic way to review what an agent did."
+        },
+        {
+          "label": "No audit log",
+          "score": 0,
+          "gap": "No audit log for API-driven changes — agent actions are effectively untraceable."
+        }
+      ]
+    },
+    {
+      "id": "q7",
+      "category": "obs",
+      "text": "Does the platform support webhooks or an event stream for changes?",
+      "options": [
+        {
+          "label": "Yes, webhooks or an event stream",
+          "score": 100,
+          "gap": null
+        },
+        {
+          "label": "Polling only",
+          "score": 40,
+          "gap": "Change notification is polling-only, which wastes an agent's cycles and adds latency to reactions."
+        },
+        {
+          "label": "No",
+          "score": 0,
+          "gap": "No webhook or event stream — an agent can only find out about changes by polling blind."
+        }
+      ]
+    },
+    {
+      "id": "q8",
+      "category": "dx",
+      "text": "Are rate limits documented, with limits surfaced in response headers?",
+      "options": [
+        {
+          "label": "Yes, documented and returned in response headers",
+          "score": 100,
+          "gap": null
+        },
+        {
+          "label": "Documented but not in headers",
+          "score": 60,
+          "gap": "Rate limits are documented but not exposed in headers, so an agent can't self-throttle dynamically."
+        },
+        {
+          "label": "Not documented",
+          "score": 0,
+          "gap": "Rate limits are undocumented — an agent has no way to self-throttle and will get throttled or banned blind."
+        }
+      ]
+    },
+    {
+      "id": "q9",
+      "category": "dx",
+      "text": "Is there a sandbox/test environment and/or an MCP server or agent-specific integration docs?",
+      "options": [
+        {
+          "label": "Yes — both a sandbox and MCP/agent docs",
+          "score": 100,
+          "gap": null
+        },
+        {
+          "label": "One of the two",
+          "score": 50,
+          "gap": "Only one of sandbox or agent-specific docs exists, so agent builders are partly flying blind."
+        },
+        {
+          "label": "Neither",
+          "score": 0,
+          "gap": "No sandbox and no agent-specific integration path — every agent build starts by testing against production."
+        }
+      ]
+    }
+  ]
+}

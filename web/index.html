@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MarTech Agent-Readiness Scanner</title>
+<meta name="description" content="Score a marketing or sales SaaS platform's API for autonomous AI agent readiness — auth, write safety, observability, developer experience." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛰️</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+<style>
+  /* ---------- tokens ---------- */
+  :root {
+    color-scheme: dark;
+    --surface-1: #0d0d0d;   /* page plane */
+    --surface-2: #1a1a19;   /* card / chart surface */
+    --surface-3: #232322;   /* raised / hover surface */
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --gridline: #2c2c2a;
+    --border: rgba(255,255,255,0.10);
+    --border-strong: rgba(255,255,255,0.16);
+    --series-1: #3987e5; /* blue   — Auth & Access */
+    --series-2: #d95926; /* orange — Write Safety */
+    --series-3: #199e70; /* aqua   — Observability */
+    --series-4: #c98500; /* yellow — Developer Experience */
+    --good: #0ca30c;
+    --warning: #fab219;
+    --serious: #ec835a;
+    --critical: #e66767;
+    --shadow: 0 20px 60px -20px rgba(0,0,0,0.6);
+  }
+  html.light {
+    color-scheme: light;
+    --surface-1: #f9f9f7;
+    --surface-2: #fcfcfb;
+    --surface-3: #f1f0ec;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #78766f;
+    --gridline: #e1e0d9;
+    --border: rgba(11,11,11,0.10);
+    --border-strong: rgba(11,11,11,0.16);
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --series-3: #1baf7a;
+    --series-4: #eda100;
+    --good: #0ca30c;
+    --warning: #b8790a;
+    --serious: #c1502b;
+    --critical: #d03b3b;
+    --shadow: 0 20px 50px -24px rgba(11,11,11,0.25);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--surface-1);
+    color: var(--text-primary);
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+
+  .page {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 40px 24px 96px;
+  }
+
+  /* ---------- header ---------- */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 40px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+  }
+  .brand-mark {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--series-1), var(--series-3));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+  .theme-toggle {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    transition: border-color .15s ease, color .15s ease;
+  }
+  .theme-toggle:hover { border-color: var(--border-strong); color: var(--text-primary); }
+
+  header.hero { margin-bottom: 36px; }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--series-3);
+    background: color-mix(in srgb, var(--series-3) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--series-3) 30%, transparent);
+    padding: 5px 10px;
+    border-radius: 999px;
+    margin-bottom: 16px;
+  }
+  h1.title {
+    font-size: clamp(28px, 4.4vw, 38px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin: 0 0 12px;
+  }
+  p.subtitle {
+    font-size: 16px;
+    color: var(--text-secondary);
+    max-width: 60ch;
+    margin: 0 0 10px;
+  }
+  p.credibility {
+    font-size: 13.5px;
+    color: var(--text-muted);
+    max-width: 62ch;
+    margin: 0;
+  }
+
+  /* ---------- card ---------- */
+  .card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px;
+    box-shadow: var(--shadow);
+  }
+  @media (max-width: 560px) {
+    .card { padding: 22px; border-radius: 16px; }
+  }
+
+  /* ---------- progress ---------- */
+  .progress-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 22px;
+    gap: 16px;
+  }
+  .progress-label {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .progress-track {
+    flex: 1;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--gridline);
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--series-1), var(--series-3));
+    transition: width .35s ease;
+  }
+  .reset-link {
+    background: none; border: none; cursor: pointer;
+    font-size: 12.5px; color: var(--text-muted);
+    text-decoration: underline; text-underline-offset: 2px;
+    padding: 0;
+  }
+  .reset-link:hover { color: var(--text-secondary); }
+
+  /* ---------- question ---------- */
+  .cat-pill {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 999px;
+    margin-bottom: 14px;
+    color: var(--surface-1);
+  }
+  h2.question {
+    font-size: clamp(19px, 3vw, 23px);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0 0 22px;
+    max-width: 46ch;
+  }
+  .options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+  .option {
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--surface-1);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 14.5px;
+    cursor: pointer;
+    transition: border-color .12s ease, background .12s ease;
+  }
+  html.light .option { background: var(--surface-3); }
+  .option:hover { border-color: var(--border-strong); }
+  .option .radio {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border-strong);
+    flex-shrink: 0;
+    position: relative;
+  }
+  .option.selected {
+    border-color: var(--series-1);
+    background: color-mix(in srgb, var(--series-1) 12%, var(--surface-1));
+  }
+  .option.selected .radio {
+    border-color: var(--series-1);
+  }
+  .option.selected .radio::after {
+    content: "";
+    position: absolute; inset: 3px;
+    border-radius: 50%;
+    background: var(--series-1);
+  }
+
+  .wizard-nav { display: flex; justify-content: space-between; align-items: center; }
+  .btn {
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 10px;
+    padding: 11px 20px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: opacity .12s ease, transform .06s ease;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-primary { background: var(--text-primary); color: var(--surface-1); }
+  .btn-primary:hover:not(:disabled) { opacity: 0.88; }
+  .btn-ghost { background: transparent; color: var(--text-secondary); border-color: var(--border); }
+  .btn-ghost:hover:not(:disabled) { color: var(--text-primary); border-color: var(--border-strong); }
+
+  /* ---------- report ---------- */
+  .report-head {
+    display: flex;
+    gap: 28px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 30px;
+  }
+  .gauge-wrap { position: relative; width: 176px; height: 176px; flex-shrink: 0; }
+  .gauge-wrap svg { width: 100%; height: 100%; }
+  .gauge-center {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .gauge-number { font-size: 44px; font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
+  .gauge-of100 { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  .verdict-block { flex: 1; min-width: 220px; }
+  .verdict-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    padding: 5px 12px;
+    border-radius: 999px;
+    margin-bottom: 12px;
+  }
+  p.narrative { font-size: 15px; color: var(--text-secondary); margin: 0; max-width: 52ch; }
+
+  .section-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 16px;
+  }
+
+  .cat-row { margin-bottom: 16px; }
+  .cat-row:last-child { margin-bottom: 0; }
+  .cat-row-top {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 7px;
+    font-size: 13.5px;
+  }
+  .cat-name { display: flex; align-items: center; gap: 8px; color: var(--text-primary); font-weight: 600; }
+  .cat-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .cat-value { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .cat-track { height: 12px; border-radius: 6px; background: var(--gridline); overflow: hidden; }
+  .cat-fill { height: 100%; border-radius: 6px; transition: width .7s cubic-bezier(.22,.9,.3,1); }
+
+  .divider { height: 1px; background: var(--gridline); margin: 28px 0; border: none; }
+
+  .gaps-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+  .gaps-list li {
+    display: flex; gap: 10px; align-items: flex-start;
+    font-size: 14px; color: var(--text-secondary);
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+  }
+  html.light .gaps-list li { background: var(--surface-3); }
+  .gaps-list .marker { color: var(--critical); flex-shrink: 0; font-weight: 700; }
+  .all-clear {
+    display: flex; gap: 10px; align-items: center;
+    font-size: 14px; color: var(--text-secondary);
+    padding: 14px 16px; border-radius: 10px;
+    background: color-mix(in srgb, var(--good) 12%, var(--surface-1));
+    border: 1px solid color-mix(in srgb, var(--good) 30%, transparent);
+  }
+
+  .report-actions { display: flex; gap: 10px; margin-top: 28px; flex-wrap: wrap; }
+
+  footer {
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin-top: 36px;
+  }
+
+  .hidden { display: none !important; }
+
+  @media (max-width: 480px) {
+    .report-head { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="topbar">
+    <div class="brand">
+      <span class="brand-mark">🛰️</span>
+      <span>Agent-Readiness Scanner</span>
+    </div>
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle color theme" title="Toggle theme">◐</button>
+  </div>
+
+  <header class="hero">
+    <span class="eyebrow">MarTech / AdTech · self-assessment</span>
+    <h1 class="title">MarTech Agent-Readiness Scanner</h1>
+    <p class="subtitle">Score how ready a marketing or sales SaaS platform's API is for an autonomous AI agent to use safely — the way a security or SEO grader scores a website, applied to auth, write safety, observability, and developer experience.</p>
+    <p class="credibility">Built by a team that has shipped a production MCP server (TapClicks) — these are the gaps that actually stall an agent integration, not theoretical ones. Answer as a self-report about the platform you're evaluating; nothing is called or scraped.</p>
+  </header>
+
+  <!-- ================= WIZARD ================= -->
+  <section class="card" id="wizardView">
+    <div class="progress-row">
+      <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="9" id="progressTrack">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <span class="progress-label mono" id="progressLabel">Question 1 of 9</span>
+      <button class="reset-link" id="resetLink">Reset</button>
+    </div>
+
+    <span class="cat-pill" id="catPill">Auth &amp; Access</span>
+    <h2 class="question" id="questionText">—</h2>
+    <div class="options" id="optionsList"></div>
+
+    <div class="wizard-nav">
+      <button class="btn btn-ghost" id="backBtn">← Back</button>
+      <button class="btn btn-primary" id="nextBtn" disabled>Next →</button>
+    </div>
+  </section>
+
+  <!-- ================= REPORT ================= -->
+  <section class="card hidden" id="reportView">
+    <div class="report-head">
+      <div class="gauge-wrap">
+        <svg viewBox="0 0 200 200">
+          <circle cx="100" cy="100" r="80" fill="none" stroke="var(--gridline)" stroke-width="16" />
+          <circle id="gaugeArc" cx="100" cy="100" r="80" fill="none" stroke-width="16" stroke-linecap="round" transform="rotate(-90 100 100)" />
+        </svg>
+        <div class="gauge-center">
+          <span class="gauge-number" id="gaugeNumber">0</span>
+          <span class="gauge-of100">/ 100</span>
+        </div>
+      </div>
+      <div class="verdict-block">
+        <div class="verdict-badge" id="verdictBadge"><span id="verdictIcon"></span><span id="verdictLabel"></span></div>
+        <p class="narrative" id="narrativeText"></p>
+      </div>
+    </div>
+
+    <p class="section-label">Category breakdown</p>
+    <div id="categoryRows"></div>
+
+    <hr class="divider" />
+
+    <p class="section-label">What's missing</p>
+    <div id="gapsWrap"></div>
+
+    <div class="report-actions">
+      <button class="btn btn-primary" id="retakeBtn">Retake assessment</button>
+      <button class="btn btn-ghost" id="copyBtn">Copy summary</button>
+    </div>
+  </section>
+
+  <footer>Self-report tool · no data leaves your browser · scores are directional, not a certification</footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------------------------------------------------------
+     Data model
+  --------------------------------------------------------------- */
+  var CATEGORIES = [
+    { id: "auth", name: "Auth & Access",          weight: 25, color: "var(--series-1)" },
+    { id: "write", name: "Write Safety",          weight: 30, color: "var(--series-2)" },
+    { id: "obs",  name: "Observability",          weight: 25, color: "var(--series-3)" },
+    { id: "dx",   name: "Developer Experience",   weight: 20, color: "var(--series-4)" }
+  ];
+
+  var QUESTIONS = [
+    {
+      id: "q1", category: "auth",
+      text: "Does the platform expose a public, documented API?",
+      options: [
+        { label: "Yes — public and well documented", score: 100 },
+        { label: "Yes, but docs are sparse, outdated, or partner-gated", score: 50 },
+        { label: "No public API", score: 0, gap: "No public, documented API — the baseline requirement before any agent integration can start." }
+      ]
+    },
+    {
+      id: "q2", category: "auth",
+      text: "What's the authentication model?",
+      options: [
+        { label: "OAuth 2.0 with scoped, revocable permissions", score: 100 },
+        { label: "API key only, account-wide access", score: 50, gap: "Auth is API-key-only with no scoping, so an agent gets full account access with no way to limit blast radius." },
+        { label: "Shared login, session cookies, or no formal auth", score: 0, gap: "No formal, scoped authentication model — an agent would have to impersonate a human session." }
+      ]
+    },
+    {
+      id: "q3", category: "write",
+      text: "Can API clients write data back to the platform, not just read?",
+      options: [
+        { label: "Yes, full read/write across core objects", score: 100 },
+        { label: "Limited write — a subset of objects only", score: 60, gap: "Write access is limited to a subset of objects, which caps what an agent can actually do end to end." },
+        { label: "Read-only", score: 0, gap: "The API is read-only — an agent can observe but never take action." }
+      ]
+    },
+    {
+      id: "q4", category: "write",
+      text: "Are writes idempotent — safe to retry without side effects (idempotency keys, upsert semantics)?",
+      options: [
+        { label: "Yes, documented idempotency support", score: 100 },
+        { label: "Partially — only on some endpoints", score: 50, gap: "Idempotency is only partially documented, so a retried agent action can be unsafe on some endpoints." },
+        { label: "No, or not documented", score: 0, gap: "Writes aren't documented as idempotent — a retried agent action can silently double-write or duplicate records." }
+      ]
+    },
+    {
+      id: "q5", category: "write",
+      text: "Are destructive writes reversible (soft delete, versioning, rollback)?",
+      options: [
+        { label: "Yes", score: 100 },
+        { label: "Partially", score: 50, gap: "Some destructive writes have no rollback path, so a subset of agent mistakes are unrecoverable." },
+        { label: "No — deletes are permanent", score: 0, gap: "Destructive writes are permanent — one bad agent action has no undo." }
+      ]
+    },
+    {
+      id: "q6", category: "obs",
+      text: "Is there an audit log for API-driven changes, queryable via the API?",
+      options: [
+        { label: "Yes, full audit trail available via the API", score: 100 },
+        { label: "Exists in the UI only, not API-accessible", score: 40, gap: "The audit trail is UI-only, so an agent operator has no programmatic way to review what an agent did." },
+        { label: "No audit log", score: 0, gap: "No audit log for API-driven changes — agent actions are effectively untraceable." }
+      ]
+    },
+    {
+      id: "q7", category: "obs",
+      text: "Does the platform support webhooks or an event stream for changes?",
+      options: [
+        { label: "Yes, webhooks or an event stream", score: 100 },
+        { label: "Polling only", score: 40, gap: "Change notification is polling-only, which wastes an agent's cycles and adds latency to reactions." },
+        { label: "No", score: 0, gap: "No webhook or event stream — an agent can only find out about changes by polling blind." }
+      ]
+    },
+    {
+      id: "q8", category: "dx",
+      text: "Are rate limits documented, with limits surfaced in response headers?",
+      options: [
+        { label: "Yes, documented and returned in response headers", score: 100 },
+        { label: "Documented but not in headers", score: 60, gap: "Rate limits are documented but not exposed in headers, so an agent can't self-throttle dynamically." },
+        { label: "Not documented", score: 0, gap: "Rate limits are undocumented — an agent has no way to self-throttle and will get throttled or banned blind." }
+      ]
+    },
+    {
+      id: "q9", category: "dx",
+      text: "Is there a sandbox/test environment and/or an MCP server or agent-specific integration docs?",
+      options: [
+        { label: "Yes — both a sandbox and MCP/agent docs", score: 100 },
+        { label: "One of the two", score: 50, gap: "Only one of sandbox or agent-specific docs exists, so agent builders are partly flying blind." },
+        { label: "Neither", score: 0, gap: "No sandbox and no agent-specific integration path — every agent build starts by testing against production." }
+      ]
+    }
+  ];
+
+  var STORAGE_ANSWERS = "mars_v1_answers";
+  var STORAGE_STEP = "mars_v1_step";
+  var STORAGE_THEME = "mars_v1_theme";
+
+  /* ---------------------------------------------------------------
+     State
+  --------------------------------------------------------------- */
+  var state = {
+    step: 0,
+    answers: {} // { qId: optionIndex }
+  };
+
+  function loadState() {
+    try {
+      var savedAnswers = JSON.parse(localStorage.getItem(STORAGE_ANSWERS) || "{}");
+      var savedStep = parseInt(localStorage.getItem(STORAGE_STEP) || "0", 10);
+      state.answers = savedAnswers && typeof savedAnswers === "object" ? savedAnswers : {};
+      state.step = isNaN(savedStep) ? 0 : savedStep;
+    } catch (e) {
+      state.answers = {};
+      state.step = 0;
+    }
+  }
+
+  function persist() {
+    try {
+      localStorage.setItem(STORAGE_ANSWERS, JSON.stringify(state.answers));
+      localStorage.setItem(STORAGE_STEP, String(state.step));
+    } catch (e) { /* ignore quota / privacy-mode errors */ }
+  }
+
+  function answeredCount() {
+    return Object.keys(state.answers).length;
+  }
+
+  function isComplete() {
+    return answeredCount() >= QUESTIONS.length;
+  }
+
+  /* ---------------------------------------------------------------
+     DOM refs
+  --------------------------------------------------------------- */
+  var el = {
+    wizardView: document.getElementById("wizardView"),
+    reportView: document.getElementById("reportView"),
+    progressFill: document.getElementById("progressFill"),
+    progressTrack: document.getElementById("progressTrack"),
+    progressLabel: document.getElementById("progressLabel"),
+    catPill: document.getElementById("catPill"),
+    questionText: document.getElementById("questionText"),
+    optionsList: document.getElementById("optionsList"),
+    backBtn: document.getElementById("backBtn"),
+    nextBtn: document.getElementById("nextBtn"),
+    resetLink: document.getElementById("resetLink"),
+    gaugeArc: document.getElementById("gaugeArc"),
+    gaugeNumber: document.getElementById("gaugeNumber"),
+    verdictBadge: document.getElementById("verdictBadge"),
+    verdictIcon: document.getElementById("verdictIcon"),
+    verdictLabel: document.getElementById("verdictLabel"),
+    narrativeText: document.getElementById("narrativeText"),
+    categoryRows: document.getElementById("categoryRows"),
+    gapsWrap: document.getElementById("gapsWrap"),
+    retakeBtn: document.getElementById("retakeBtn"),
+    copyBtn: document.getElementById("copyBtn"),
+    themeToggle: document.getElementById("themeToggle")
+  };
+
+  var categoryById = {};
+  CATEGORIES.forEach(function (c) { categoryById[c.id] = c; });
+
+  /* ---------------------------------------------------------------
+     Wizard rendering
+  --------------------------------------------------------------- */
+  function renderWizard() {
+    var idx = Math.min(state.step, QUESTIONS.length - 1);
+    var q = QUESTIONS[idx];
+    var cat = categoryById[q.category];
+
+    el.progressTrack.setAttribute("aria-valuenow", String(idx));
+    el.progressFill.style.width = ((idx / QUESTIONS.length) * 100) + "%";
+    el.progressLabel.textContent = "Question " + (idx + 1) + " of " + QUESTIONS.length;
+
+    el.catPill.textContent = cat.name;
+    el.catPill.style.background = cat.color;
+    el.catPill.style.color = "var(--surface-1)";
+
+    el.questionText.textContent = q.text;
+
+    el.optionsList.innerHTML = "";
+    var selectedIndex = state.answers[q.id];
+    q.options.forEach(function (opt, optIdx) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "option" + (selectedIndex === optIdx ? " selected" : "");
+      btn.setAttribute("aria-pressed", selectedIndex === optIdx ? "true" : "false");
+      var radio = document.createElement("span");
+      radio.className = "radio";
+      var label = document.createElement("span");
+      label.textContent = opt.label;
+      btn.appendChild(radio);
+      btn.appendChild(label);
+      btn.addEventListener("click", function () {
+        state.answers[q.id] = optIdx;
+        persist();
+        renderWizard();
+      });
+      el.optionsList.appendChild(btn);
+    });
+
+    el.backBtn.disabled = idx === 0;
+    var hasAnswer = typeof selectedIndex === "number";
+    el.nextBtn.disabled = !hasAnswer;
+    el.nextBtn.textContent = idx === QUESTIONS.length - 1 ? "See report →" : "Next →";
+  }
+
+  function goNext() {
+    var idx = Math.min(state.step, QUESTIONS.length - 1);
+    var q = QUESTIONS[idx];
+    if (typeof state.answers[q.id] !== "number") return;
+
+    if (idx === QUESTIONS.length - 1) {
+      state.step = idx;
+      persist();
+      showReport();
+      return;
+    }
+    state.step = idx + 1;
+    persist();
+    renderWizard();
+  }
+
+  function goBack() {
+    var idx = Math.min(state.step, QUESTIONS.length - 1);
+    if (idx === 0) return;
+    state.step = idx - 1;
+    persist();
+    renderWizard();
+  }
+
+  /* ---------------------------------------------------------------
+     Scoring
+  --------------------------------------------------------------- */
+  function computeResults() {
+    var categoryTotals = {};   // sum of scores per category
+    var categoryCounts = {};   // number of answered questions per category
+    var gaps = [];             // { text, score }
+
+    CATEGORIES.forEach(function (c) {
+      categoryTotals[c.id] = 0;
+      categoryCounts[c.id] = 0;
+    });
+
+    QUESTIONS.forEach(function (q) {
+      var optIdx = state.answers[q.id];
+      if (typeof optIdx !== "number") return;
+      var opt = q.options[optIdx];
+      categoryTotals[q.category] += opt.score;
+      categoryCounts[q.category] += 1;
+      if (opt.gap) gaps.push({ text: opt.gap, score: opt.score });
+    });
+
+    var categoryScores = {};
+    var overall = 0;
+    CATEGORIES.forEach(function (c) {
+      var count = categoryCounts[c.id] || 1;
+      var avg = categoryTotals[c.id] / count;
+      categoryScores[c.id] = avg;
+      overall += avg * (c.weight / 100);
+    });
+
+    gaps.sort(function (a, b) { return a.score - b.score; });
+
+    return { overall: overall, categoryScores: categoryScores, gaps: gaps };
+  }
+
+  function verdictBand(score) {
+    if (score >= 80) return { label: "Agent-Ready", tone: "good", icon: "✓" };
+    if (score >= 60) return { label: "Partially Ready", tone: "warning", icon: "!" };
+    if (score >= 35) return { label: "Significant Gaps", tone: "serious", icon: "!" };
+    return { label: "Not Agent-Ready", tone: "critical", icon: "✕" };
+  }
+
+  function buildNarrative(overall, categoryScores) {
+    var band = verdictBand(overall);
+    var weakest = CATEGORIES[0], weakestScore = 1000;
+    var strongest = CATEGORIES[0], strongestScore = -1;
+    CATEGORIES.forEach(function (c) {
+      var s = categoryScores[c.id];
+      if (s < weakestScore) { weakestScore = s; weakest = c; }
+      if (s > strongestScore) { strongestScore = s; strongest = c; }
+    });
+
+    var openers = {
+      good: "agent-ready. An agent could integrate against this API today with reasonable safety and observability guardrails already in place.",
+      warning: "partially ready. The basics are there, but real gaps remain that an agent implementation would need to work around by hand.",
+      serious: "significant gaps. Building an agent against this API today means compensating for missing safety or observability controls yourself.",
+      critical: "not agent-ready. Foundational pieces an autonomous agent needs before it can act safely are missing."
+    };
+
+    var sentences = [];
+    sentences.push("This platform scores " + Math.round(overall) + "/100 for agent-readiness — " + openers[band.tone]);
+    sentences.push("The weakest area is " + weakest.name + " (" + Math.round(weakestScore) + "/100), the category most likely to block or complicate autonomous use.");
+    if (strongestScore >= 80 && strongest.id !== weakest.id) {
+      sentences.push(strongest.name + " is comparatively solid at " + Math.round(strongestScore) + "/100.");
+    }
+    return sentences.join(" ");
+  }
+
+  /* ---------------------------------------------------------------
+     Report rendering
+  --------------------------------------------------------------- */
+  var GAUGE_R = 80;
+  var GAUGE_C = 2 * Math.PI * GAUGE_R;
+
+  function renderReport() {
+    var results = computeResults();
+    var band = verdictBand(results.overall);
+    var toneColor = "var(--" + band.tone + ")";
+
+    // gauge
+    el.gaugeArc.style.stroke = toneColor;
+    el.gaugeArc.setAttribute("stroke-dasharray", String(GAUGE_C));
+    var offset = GAUGE_C * (1 - Math.max(0, Math.min(100, results.overall)) / 100);
+    el.gaugeArc.setAttribute("stroke-dashoffset", String(offset));
+    el.gaugeNumber.textContent = String(Math.round(results.overall));
+    el.gaugeNumber.style.color = toneColor;
+
+    // verdict badge
+    el.verdictBadge.style.background = "color-mix(in srgb, " + toneColor + " 16%, transparent)";
+    el.verdictBadge.style.border = "1px solid color-mix(in srgb, " + toneColor + " 40%, transparent)";
+    el.verdictBadge.style.color = toneColor;
+    el.verdictIcon.textContent = band.icon;
+    el.verdictLabel.textContent = band.label;
+
+    // narrative
+    el.narrativeText.textContent = buildNarrative(results.overall, results.categoryScores);
+
+    // category rows
+    el.categoryRows.innerHTML = "";
+    CATEGORIES.forEach(function (c) {
+      var score = results.categoryScores[c.id];
+      var row = document.createElement("div");
+      row.className = "cat-row";
+
+      var top = document.createElement("div");
+      top.className = "cat-row-top";
+      var nameWrap = document.createElement("span");
+      nameWrap.className = "cat-name";
+      var dot = document.createElement("span");
+      dot.className = "cat-dot";
+      dot.style.background = c.color;
+      nameWrap.appendChild(dot);
+      nameWrap.appendChild(document.createTextNode(c.name));
+      var valueWrap = document.createElement("span");
+      valueWrap.className = "cat-value mono";
+      valueWrap.textContent = Math.round(score) + "/100";
+      top.appendChild(nameWrap);
+      top.appendChild(valueWrap);
+
+      var track = document.createElement("div");
+      track.className = "cat-track";
+      var fill = document.createElement("div");
+      fill.className = "cat-fill";
+      fill.style.width = Math.max(2, score) + "%";
+      fill.style.background = c.color;
+      track.appendChild(fill);
+
+      row.appendChild(top);
+      row.appendChild(track);
+      el.categoryRows.appendChild(row);
+    });
+
+    // gaps
+    el.gapsWrap.innerHTML = "";
+    var shownGaps = results.gaps.slice(0, 6);
+    if (shownGaps.length === 0) {
+      var clear = document.createElement("div");
+      clear.className = "all-clear";
+      clear.innerHTML = "<span>✓</span><span>No major gaps identified in this self-report — the platform looks agent-ready across the board.</span>";
+      el.gapsWrap.appendChild(clear);
+    } else {
+      var list = document.createElement("ul");
+      list.className = "gaps-list";
+      shownGaps.forEach(function (g) {
+        var li = document.createElement("li");
+        var marker = document.createElement("span");
+        marker.className = "marker";
+        marker.textContent = "—";
+        var text = document.createElement("span");
+        text.textContent = g.text;
+        li.appendChild(marker);
+        li.appendChild(text);
+        list.appendChild(li);
+      });
+      el.gapsWrap.appendChild(list);
+    }
+  }
+
+  function buildSummaryText() {
+    var results = computeResults();
+    var band = verdictBand(results.overall);
+    var lines = [];
+    lines.push("MarTech Agent-Readiness Scanner");
+    lines.push("Overall score: " + Math.round(results.overall) + "/100 — " + band.label);
+    lines.push("");
+    CATEGORIES.forEach(function (c) {
+      lines.push(c.name + ": " + Math.round(results.categoryScores[c.id]) + "/100");
+    });
+    if (results.gaps.length) {
+      lines.push("");
+      lines.push("What's missing:");
+      results.gaps.slice(0, 6).forEach(function (g) {
+        lines.push("- " + g.text);
+      });
+    }
+    return lines.join("\n");
+  }
+
+  /* ---------------------------------------------------------------
+     View switching
+  --------------------------------------------------------------- */
+  function showWizard() {
+    el.reportView.classList.add("hidden");
+    el.wizardView.classList.remove("hidden");
+    renderWizard();
+  }
+
+  function showReport() {
+    el.wizardView.classList.add("hidden");
+    el.reportView.classList.remove("hidden");
+    renderReport();
+  }
+
+  function retake() {
+    state.answers = {};
+    state.step = 0;
+    persist();
+    showWizard();
+  }
+
+  /* ---------------------------------------------------------------
+     Theme
+  --------------------------------------------------------------- */
+  function applyTheme(mode) {
+    if (mode === "light") {
+      document.documentElement.classList.add("light");
+      el.themeToggle.textContent = "☀";
+    } else {
+      document.documentElement.classList.remove("light");
+      el.themeToggle.textContent = "◐";
+    }
+  }
+
+  function initTheme() {
+    var saved = null;
+    try { saved = localStorage.getItem(STORAGE_THEME); } catch (e) {}
+    if (saved === "light" || saved === "dark") {
+      applyTheme(saved);
+      return;
+    }
+    var prefersLight = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches;
+    applyTheme(prefersLight ? "light" : "dark");
+  }
+
+  function toggleTheme() {
+    var isLight = document.documentElement.classList.contains("light");
+    var next = isLight ? "dark" : "light";
+    applyTheme(next);
+    try { localStorage.setItem(STORAGE_THEME, next); } catch (e) {}
+  }
+
+  /* ---------------------------------------------------------------
+     Wire up
+  --------------------------------------------------------------- */
+  el.nextBtn.addEventListener("click", goNext);
+  el.backBtn.addEventListener("click", goBack);
+  el.resetLink.addEventListener("click", retake);
+  el.retakeBtn.addEventListener("click", retake);
+  el.themeToggle.addEventListener("click", toggleTheme);
+  el.copyBtn.addEventListener("click", function () {
+    var text = buildSummaryText();
+    var done = function () {
+      var original = el.copyBtn.textContent;
+      el.copyBtn.textContent = "Copied ✓";
+      setTimeout(function () { el.copyBtn.textContent = original; }, 1600);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(function () {
+        window.prompt("Copy this summary:", text);
+      });
+    } else {
+      window.prompt("Copy this summary:", text);
+    }
+  });
+
+  initTheme();
+  loadState();
+  if (isComplete()) {
+    showReport();
+  } else {
+    state.step = Math.min(state.step, answeredCount());
+    showWizard();
+  }
+})();
+</script>
+</body>
+</html>
